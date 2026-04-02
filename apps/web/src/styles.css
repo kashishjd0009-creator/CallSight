@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    /* Explicit stack so EB Garamond applies even if Tailwind utilities are purged or mis-merged */
+    font-family: "EB Garamond", Georgia, ui-serif, serif;
+  }
+
+  body {
+    @apply bg-bg-primary text-text-primary antialiased;
+    font-family: inherit;
+  }
+}

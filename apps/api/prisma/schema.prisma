@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Tier {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum UploadStatus {
+  PROCESSING
+  READY
+  ERROR
+}
+
+enum ReportType {
+  AUTO
+  AI_QUERY
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  tier         Tier     @default(FREE)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  uploads             Upload[]
+  reports             Report[]
+  usageRecords        UsageRecord[]
+  refreshSessions     RefreshSession[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model RefreshSession {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Upload {
+  id          String       @id @default(uuid())
+  userId      String
+  fileName    String
+  storagePath String
+  rowCount    Int
+  columnMap   Json
+  uploadedAt  DateTime     @default(now())
+  status      UploadStatus @default(PROCESSING)
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports Report[]
+}
+
+model Report {
+  id          String     @id @default(uuid())
+  userId      String
+  uploadId    String
+  type        ReportType
+  query       String?
+  parsedQuery Json?
+  resultData  Json
+  createdAt   DateTime   @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+}
+
+model UsageRecord {
+  id           String @id @default(uuid())
+  userId       String
+  month        String
+  aiQueryCount Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
+}
+
+model PipelineEvent {
+  id            String   @id @default(uuid())
+  probeSpanId   String
+  correlationId String
+  userId        String?
+  uploadId      String?
+  step          String
+  phase         String
+  level         String
+  message       String?
+  payload       Json?
+  durationMs    Int?
+  httpMethod    String?
+  httpPath      String?
+  statusCode    Int?
+  errorCode     String?
+  createdAt     DateTime @default(now())
+
+  @@index([correlationId])
+  @@index([probeSpanId])
+  @@index([userId, createdAt])
+  @@index([step, createdAt])
+}

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+apps/api/uploads/
+master_prompt.md
+jd_fusion_dashboard.html
+jd_fusion_v3.html
+PROMPTS/*
+apps/api/uploads/*
