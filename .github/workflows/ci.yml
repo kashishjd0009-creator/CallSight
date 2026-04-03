@@ -28,6 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        # This will install the dependencies from the lockfile, works like npm ci
 
       #Check Prisma connection
       - name: Prisma Generate
