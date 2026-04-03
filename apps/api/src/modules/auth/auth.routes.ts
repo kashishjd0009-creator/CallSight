@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { CookieOptions } from "express";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 
@@ -29,6 +30,7 @@ export function createAuthRouter(
   jwtRefreshSecret: string,
   prisma: PrismaClient,
   observability: ObservabilityService,
+  authCookieOptions: CookieOptions,
 ): Router {
   const repository = new PrismaAuthRepository(prisma);
   const service = new AuthService(repository, new NoopEmailSender(), {
@@ -38,7 +40,7 @@ export function createAuthRouter(
     refreshTokenTtlSeconds: 7 * 24 * 60 * 60,
     passwordResetTtlSeconds: 60 * 60,
   });
-  const controller = new AuthController(service, observability);
+  const controller = new AuthController(service, observability, authCookieOptions);
 
   const router = Router();
   const authLimiter = rateLimit({

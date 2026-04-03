@@ -8,6 +8,7 @@ import { errorMiddleware } from "./core/error-middleware.js";
 import { prisma } from "./lib/prisma.js";
 import { createAiQueryRouter } from "./modules/ai-query/ai-query.routes.js";
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes.js";
+import { buildAuthCookieOptions } from "./modules/auth/auth-cookie-options.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
 import { createBillingRouter } from "./modules/billing/billing.routes.js";
 import { PrismaObservabilityRepository } from "./modules/observability/observability.repository.js";
@@ -39,9 +40,16 @@ app.use(
 );
 app.use(createRequestContextMiddleware(observabilityService));
 
+const authCookieOptions = buildAuthCookieOptions(env.authCookieCrossSite);
 app.use(
   "/api/v1/auth",
-  createAuthRouter(env.JWT_SECRET, env.JWT_REFRESH_SECRET, prisma, observabilityService),
+  createAuthRouter(
+    env.JWT_SECRET,
+    env.JWT_REFRESH_SECRET,
+    prisma,
+    observabilityService,
+    authCookieOptions,
+  ),
 );
 app.use("/api/v1/users", createUserRouter(env.JWT_SECRET, prisma));
 app.use(

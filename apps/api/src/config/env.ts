@@ -17,7 +17,17 @@ const envSchema = z.object({
   ADMIN_EMAIL: z.string().email(),
 });
 
-export type AppEnv = z.infer<typeof envSchema>;
+export type AppEnv = z.infer<typeof envSchema> & {
+  /** When true, auth cookies use SameSite=None; Secure (needed for split frontend/API domains). */
+  authCookieCrossSite: boolean;
+};
+
+function resolveAuthCookieCrossSite(raw: NodeJS.ProcessEnv, nodeEnv: string): boolean {
+  const v = raw.AUTH_COOKIE_CROSS_SITE;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  return nodeEnv === "production";
+}
 
 export function loadEnv(raw: NodeJS.ProcessEnv = process.env): AppEnv {
   const parsed = envSchema.safeParse(raw);
@@ -26,5 +36,9 @@ export function loadEnv(raw: NodeJS.ProcessEnv = process.env): AppEnv {
     const key = firstIssue?.path[0];
     throw new Error(`Missing required environment variable: ${String(key ?? "UNKNOWN")}`);
   }
-  return parsed.data;
+  const data = parsed.data;
+  return {
+    ...data,
+    authCookieCrossSite: resolveAuthCookieCrossSite(raw, data.NODE_ENV),
+  };
 }

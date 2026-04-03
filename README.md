@@ -88,6 +88,18 @@ callsight/
 
    By default the UI is at [http://localhost:5173](http://localhost:5173) and the API at [http://localhost:3001](http://localhost:3001).
 
+## Commands (quick reference)
+
+From the **repo root**, use `pnpm --filter …` so the monorepo links `packages/shared-types` correctly.
+
+|               | Command                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Dev — API     | `pnpm --filter @callsight/api dev`                                                                                |
+| Dev — web     | `pnpm --filter @callsight/web dev`                                                                                |
+| Build — API   | `pnpm --filter @callsight/api build` → `apps/api/dist`                                                            |
+| Build — web   | `pnpm --filter @callsight/web build` → `apps/web/dist` (set `VITE_API_URL` in the environment for a real API URL) |
+| Run built API | `cd apps/api && node dist/index.js`                                                                               |
+
 ## How do I run the tests?
 
 The API and web packages use **Vitest**. From the repo root, run all workspace tests (same pattern as `.github/workflows/ci.yml`):
@@ -105,22 +117,39 @@ pnpm --filter @callsight/web test
 
 CI also runs `pnpm lint` and `pnpm typecheck` if you want parity with the quality gate.
 
-## How do I deploy it?
+## Deploy (Render for the API, Vercel for the web)
 
-This repo does not ship a Docker image or platform-specific deploy manifest. Deploy by running what CI validates (Node 20, `pnpm install --frozen-lockfile`) and applying the same operational steps your host needs:
+A common split: **Render** runs the Node API; **Vercel** hosts the static Vite build. Point the web app at the API with `VITE_API_URL` and point the API at the web with `FRONTEND_URL` (CORS). Use Node **20** everywhere.
 
-1. **Secrets and config:** set all variables from `apps/api/.env.example` (and any host-specific paths) in your environment. Use `FRONTEND_URL` as the real browser origin for CORS.
+### Render — API (Web Service)
 
-2. **Database:** point `DATABASE_URL` / `DIRECT_URL` at production PostgreSQL, then apply committed migrations only:
+Connect the Git repo and use the **repository root** (not `apps/api` alone — pnpm needs the workspace).
 
-   ```bash
-   pnpm --filter @callsight/api exec prisma migrate deploy
-   ```
+| Field             | Value                                                                                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @callsight/api prisma:generate && pnpm --filter @callsight/api exec prisma migrate deploy && pnpm --filter @callsight/api build` |
+| **Start command** | `cd apps/api && node dist/index.js`                                                                                                                                               |
 
-3. **API:** generate the Prisma client (`pnpm --filter @callsight/api prisma:generate`), build with `pnpm --filter @callsight/api build`, then run the compiled entrypoint (for example `node dist/index.js` from `apps/api` after build). Ensure `PORT` and upload/storage paths match your server layout.
+In the Render dashboard, add every variable your API needs (same ideas as `apps/api/.env.example` / `apps/api/src/config/env.ts`): `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `GEMINI_API_KEY`, SMTP settings, `FRONTEND_URL` (your Vercel URL, e.g. `https://your-app.vercel.app`), `ADMIN_EMAIL`, etc. Set **`PORT`** to Render’s provided port if Render does not inject it automatically (Render usually sets `PORT`).
 
-4. **Web:** set `VITE_API_URL` to your public API URL **at build time**, then `pnpm --filter @callsight/web build` and serve the `apps/web/dist` static assets from a CDN, object storage + edge, or reverse proxy.
+After the first deploy, you can shorten the **build command** to omit `prisma migrate deploy` if you prefer to run migrations manually; keep **`prisma:generate`** and **`build`** on every deploy.
 
-5. **CI:** `.github/workflows/ci.yml` runs lint, typecheck, Prisma generate, and tests on pushes/PRs to `main`; extend it or add a separate workflow when you have a chosen host (VPS, Railway, Render, Fly.io, etc.).
+### Vercel — web (static frontend)
+
+Use the **repository root** so the install sees the pnpm workspace.
+
+| Field                    | Value                                                                                                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Install command**      | `pnpm install --frozen-lockfile`                                                                                                                                        |
+| **Build command**        | `pnpm --filter @callsight/web build`                                                                                                                                    |
+| **Output directory**     | `apps/web/dist`                                                                                                                                                         |
+| **Environment variable** | `VITE_API_URL` = your public API base URL (e.g. `https://your-api.onrender.com`) — must be set for **Production** (and Preview if you want previews to hit a real API). |
+
+Framework preset: **Vite** or **Other**; the important part is the install/build/output above.
+
+### Other hosts
+
+- **Database:** production PostgreSQL; migrations: `pnpm --filter @callsight/api exec prisma migrate deploy` when you need to apply committed migration files only.
+- **CI:** `.github/workflows/ci.yml` runs lint, typecheck, Prisma generate, and tests on `main`.
 
 For deeper architecture notes, see `PROJECT_OVERVIEW.md`. The previous readme content is preserved in `README_old.md`.

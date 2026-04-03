@@ -25,4 +25,14 @@ describe("loadEnv", () => {
     Reflect.deleteProperty(withoutAdmin, "ADMIN_EMAIL");
     expect(() => loadEnv(withoutAdmin)).toThrow("ADMIN_EMAIL");
   });
+
+  it("sets authCookieCrossSite false in development by default", () => {
+    const env = loadEnv({ ...baseEnv });
+    expect(env.authCookieCrossSite).toBe(false);
+  });
+
+  it("sets authCookieCrossSite true in production by default", () => {
+    const env = loadEnv({ ...baseEnv, NODE_ENV: "production" });
+    expect(env.authCookieCrossSite).toBe(true);
+  });
 });

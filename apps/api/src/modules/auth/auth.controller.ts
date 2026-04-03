@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 
 import { AppError } from "../../core/errors.js";
 import { ok } from "../../core/http.js";
@@ -8,12 +8,6 @@ import { runProbe } from "../observability/pipeline-probe.js";
 import type { ProbeContext } from "../observability/observability.types.js";
 import { AuthService } from "./auth.service.js";
 import type { AuthUser } from "./auth.types.js";
-
-const authCookieOptions = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  path: "/",
-};
 
 function publicAuthUser(user: AuthUser) {
   return {
@@ -30,6 +24,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly observability: ObservabilityService,
+    private readonly authCookieOptions: CookieOptions,
   ) {}
 
   private probeCtx(req: Request): ProbeContext {
@@ -74,14 +69,14 @@ export class AuthController {
         emailDomain: email.includes("@") ? email.split("@")[1] : "unknown",
       }),
     );
-    res.cookie("accessToken", result.tokens.accessToken, authCookieOptions);
-    res.cookie("refreshToken", result.tokens.refreshToken, authCookieOptions);
+    res.cookie("accessToken", result.tokens.accessToken, this.authCookieOptions);
+    res.cookie("refreshToken", result.tokens.refreshToken, this.authCookieOptions);
     ok(res, { user: publicAuthUser(result.user), tokens: result.tokens });
   };
 
   logout = async (_req: Request, res: Response): Promise<void> => {
-    res.clearCookie("accessToken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/" });
+    res.clearCookie("accessToken", this.authCookieOptions);
+    res.clearCookie("refreshToken", this.authCookieOptions);
     ok(res, { loggedOut: true });
   };
 
@@ -91,8 +86,8 @@ export class AuthController {
       throw new AppError(401, "UNAUTHORIZED", "Missing refresh token");
     }
     const tokens = await this.authService.refresh(refreshToken);
-    res.cookie("accessToken", tokens.accessToken, authCookieOptions);
-    res.cookie("refreshToken", tokens.refreshToken, authCookieOptions);
+    res.cookie("accessToken", tokens.accessToken, this.authCookieOptions);
+    res.cookie("refreshToken", tokens.refreshToken, this.authCookieOptions);
     ok(res, tokens);
   };
 
@@ -133,8 +128,8 @@ export class AuthController {
         currentPassword,
         newPassword,
       );
-      res.cookie("accessToken", tokens.accessToken, authCookieOptions);
-      res.cookie("refreshToken", tokens.refreshToken, authCookieOptions);
+      res.cookie("accessToken", tokens.accessToken, this.authCookieOptions);
+      res.cookie("refreshToken", tokens.refreshToken, this.authCookieOptions);
       ok(res, { updated: true });
     } catch (e) {
       if (e instanceof Error && e.message === "INVALID_CURRENT_PASSWORD") {
